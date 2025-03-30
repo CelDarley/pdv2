@@ -10,6 +10,7 @@
         <div class="col-md-8">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2>Cardápio</h2>
+                <small class="text-muted">Versão 1.0</small>
             </div>
             
             {% regroup produtos by categoria as categorias %}
@@ -18,13 +19,19 @@
                 <h3 class="mb-4">{{ categoria.grouper.nome }}</h3>
                 <div class="row">
                     {% for produto in categoria.list %}
-                    <div class="col-md-4 mb-4">
+                    <div class="col-12 mb-4">
                         <div class="card h-100" style="cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-5px)'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.1)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';" onclick="abrirModalProduto({{ produto.id }}, '{{ produto.nome|escapejs }}', '{{ produto.descricao|escapejs }}', {{ produto.preco }}, '{{ produto.imagem.url }}')">
-                            <img src="{{ produto.imagem.url }}" class="card-img-top produto-imagem" alt="{{ produto.nome }}">
-                            <div class="card-body">
-                                <h5 class="card-title">{{ produto.nome }}</h5>
-                                <p class="card-text">{{ produto.descricao }}</p>
-                                <p class="preco mb-3">R$ {{ produto.preco|floatformat:2 }}</p>
+                            <div class="row g-0">
+                                <div class="col-md-4">
+                                    <img src="{{ produto.imagem.url }}" class="img-fluid rounded-start h-100" style="object-fit: cover;" alt="{{ produto.nome }}">
+                                </div>
+                                <div class="col-md-8">
+                                    <div class="card-body">
+                                        <h5 class="card-title">{{ produto.nome }}</h5>
+                                        <p class="card-text">{{ produto.descricao }}</p>
+                                        <p class="preco mb-3">R$ {{ produto.preco|floatformat:2 }}</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -137,6 +144,25 @@
     </div>
 </div>
 
+<!-- Modal Fechar Conta -->
+<div class="modal fade" id="modalFecharConta" tabindex="-1" aria-labelledby="modalFecharContaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalFecharContaLabel">Fechar Conta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="modalFecharContaBody">
+                <!-- Lista de pedidos será inserida aqui via JavaScript -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button>
+                <button type="button" class="btn btn-primary" onclick="pagarConta()">Pagar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal do Produto -->
 <div class="modal fade" id="modalProduto" tabindex="-1" aria-labelledby="modalProdutoTitulo" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -190,25 +216,6 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-primary" onclick="adicionarProdutoSelecionado()">Adicionar ao Pedido</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal Fechar Conta -->
-<div class="modal fade" id="modalFecharConta" tabindex="-1" aria-labelledby="modalFecharContaLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalFecharContaLabel">Fechar Conta</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body" id="modalFecharContaBody">
-                <!-- Lista de pedidos será inserida aqui via JavaScript -->
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button>
-                <button type="button" class="btn btn-primary" onclick="pagarConta()">Pagar</button>
             </div>
         </div>
     </div>
