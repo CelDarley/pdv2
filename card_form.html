@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pagamento</title>
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        #card-element {
+            padding: 12px;
+            border: 1px solid #e6e6e6;
+            border-radius: 4px;
+            background-color: white;
+        }
+        #card-errors {
+            color: #dc3545;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <form id="payment-form">
+        <div id="card-element"></div>
+        <div id="card-errors" role="alert"></div>
+        <button id="submit-button">Pagar</button>
+    </form>
+    <script>
+        const stripe = Stripe('sua_chave_publica_aqui');
+        const elements = stripe.elements();
+        const card = elements.create('card');
+        card.mount('#card-element');
+
+        card.addEventListener('change', function(event) {
+            const displayError = document.getElementById('card-errors');
+            if (event.error) {
+                displayError.textContent = event.error.message;
+            } else {
+                displayError.textContent = '';
+            }
+        });
+
+        const form = document.getElementById('payment-form');
+        form.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const submitButton = document.getElementById('submit-button');
+            submitButton.disabled = true;
+
+            try {
+                const {token, error} = await stripe.createToken(card);
+                if (error) {
+                    const errorElement = document.getElementById('card-errors');
+                    errorElement.textContent = error.message;
+                } else {
+                    // Envia o token para o servidor
+                    fetch('/create-payment', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            token: token.id,
+                            amount: document.getElementById('amount').value,
+                            product: document.getElementById('product').value
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Pagamento realizado com sucesso!');
+                        } else {
+                            alert('Erro no pagamento: ' + data.error);
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                alert('Erro ao processar pagamento');
+            } finally {
+                submitButton.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html> 

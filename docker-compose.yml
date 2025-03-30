@@ -1,0 +1,7 @@
+version: '3'
+services:
+  buildozer:
+    image: kivy/buildozer
+    volumes:
+      - .:/app
+    command: buildozer android debug 

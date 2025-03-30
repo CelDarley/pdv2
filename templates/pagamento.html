@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pagamento</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .preco {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .pedido-item {
+            border-bottom: 1px solid #dee2e6;
+            padding: 0.5rem 0;
+        }
+        .pedido-item:last-child {
+            border-bottom: none;
+        }
+        .opcao-pagamento {
+            cursor: pointer;
+            transition: transform 0.2s;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .opcao-pagamento:hover {
+            transform: translateY(-5px);
+            border-color: #0d6efd;
+        }
+        .opcao-pagamento.selecionada {
+            border-color: #0d6efd;
+            background-color: #f8f9fa;
+        }
+        .icone-pagamento {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="/">Restaurante</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <h2 class="mb-4">Pagamento</h2>
+                
+                <!-- Resumo do pedido -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Resumo do Pedido</h5>
+                        {% for item in pedido_atual %}
+                            <div class="pedido-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-0">{{ item.nome }}</h6>
+                                        <small class="text-muted">Quantidade: {{ item.quantidade }}</small>
+                                        {% if item.extras %}
+                                            <br>
+                                            <small class="text-muted">Extras: 
+                                                {% for extra in item.extras %}
+                                                    {% if extra == 'molho_especial' %}
+                                                        Molho Especial
+                                                    {% elif extra == 'ketchup' %}
+                                                        Ketchup
+                                                    {% elif extra == 'maionese' %}
+                                                        Maionese
+                                                    {% endif %}
+                                                    {% if not loop.last %}, {% endif %}
+                                                {% endfor %}
+                                            </small>
+                                        {% endif %}
+                                    </div>
+                                    <div class="text-end">
+                                        <p class="preco mb-0">R$ {{ "%.2f"|format(item.preco_total) }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <h4 class="mb-0">Total:</h4>
+                            <h4 class="preco mb-0">R$ {{ "%.2f"|format(total) }}</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Opções de pagamento -->
+                <div class="mb-4">
+                    <h5 class="mb-3">Escolha a forma de pagamento:</h5>
+                    <div class="opcao-pagamento" data-forma="cartao">
+                        <div class="text-center">
+                            <div class="icone-pagamento">💳</div>
+                            <h5>Cartão de Crédito/Débito</h5>
+                            <p class="text-muted mb-0">Pague com cartão</p>
+                        </div>
+                    </div>
+                    <div class="opcao-pagamento" data-forma="pix">
+                        <div class="text-center">
+                            <div class="icone-pagamento">📱</div>
+                            <h5>PIX</h5>
+                            <p class="text-muted mb-0">Pague com PIX</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botão Voltar -->
+                <div class="d-grid">
+                    <button class="btn btn-secondary btn-lg" onclick="window.location.href='/'">
+                        Voltar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Status do Pagamento -->
+    <div class="modal fade" id="modalStatus" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-body text-center p-5">
+                    <div class="spinner-border text-primary mb-3" role="status" id="spinnerStatus">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <h5 class="mb-3" id="statusMensagem">Aguardando aproximação do cartão...</h5>
+                    <div class="progress mb-3" style="height: 5px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal do QR Code PIX -->
+    <div class="modal fade" id="modalQRCode" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-body text-center p-5">
+                    <h5 class="mb-4">Escaneie o QR Code para pagar</h5>
+                    <div id="qrCodeContainer" class="mb-4">
+                        <!-- QR Code será inserido aqui -->
+                    </div>
+                    <div class="progress mb-3" style="height: 5px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <p class="text-muted mb-0" id="statusPix">Aguardando leitura do QR Code...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let modalStatus = null;
+        let modalQRCode = null;
+        let verificacaoPixInterval = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            modalStatus = new bootstrap.Modal(document.getElementById('modalStatus'));
+            modalQRCode = new bootstrap.Modal(document.getElementById('modalQRCode'));
+            
+            // Adiciona eventos de clique para as opções de pagamento
+            document.querySelectorAll('.opcao-pagamento').forEach(opcao => {
+                opcao.addEventListener('click', function() {
+                    const forma = this.dataset.forma;
+                    if (forma === 'cartao') {
+                        processarPagamento(forma);
+                    } else if (forma === 'pix') {
+                        processarPagamento(forma);
+                    }
+                });
+            });
+        });
+
+        function atualizarStatus(mensagem, progresso) {
+            document.getElementById('statusMensagem').textContent = mensagem;
+            document.querySelector('.progress-bar').style.width = `${progresso}%`;
+        }
+
+        function atualizarStatusPix(mensagem, progresso) {
+            document.getElementById('statusPix').textContent = mensagem;
+            document.querySelector('#modalQRCode .progress-bar').style.width = `${progresso}%`;
+        }
+
+        function processarPagamento(forma) {
+            if (forma === 'cartao') {
+                // Mostra o modal de status do cartão
+                modalStatus.show();
+                atualizarStatus('Aguardando aproximação do cartão...', 0);
+
+                fetch('/processar_pagamento', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        forma_pagamento: forma
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        atualizarStatus('Pagamento processado com sucesso!', 100);
+                        setTimeout(() => {
+                            window.location.href = data.redirect;
+                        }, 1500);
+                    } else {
+                        atualizarStatus('Erro ao processar pagamento: ' + data.message, 0);
+                        setTimeout(() => {
+                            modalStatus.hide();
+                        }, 2000);
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro:', error);
+                    atualizarStatus('Erro ao processar pagamento', 0);
+                    setTimeout(() => {
+                        modalStatus.hide();
+                    }, 2000);
+                });
+            } else if (forma === 'pix') {
+                // Mostra o modal do QR Code
+                modalQRCode.show();
+                atualizarStatusPix('Gerando QR Code...', 0);
+
+                fetch('/processar_pagamento', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        forma_pagamento: forma
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Insere o QR Code na página
+                        const qrCodeContainer = document.getElementById('qrCodeContainer');
+                        qrCodeContainer.innerHTML = `<img src="data:image/png;base64,${data.qr_code}" alt="QR Code PIX" class="img-fluid">`;
+                        
+                        // Inicia a simulação de leitura do QR Code
+                        atualizarStatusPix('Aguardando leitura do QR Code...', 0);
+                        iniciarVerificacaoPix();
+                    } else {
+                        atualizarStatusPix('Erro ao gerar QR Code: ' + data.message, 0);
+                        setTimeout(() => {
+                            modalQRCode.hide();
+                        }, 2000);
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro:', error);
+                    atualizarStatusPix('Erro ao gerar QR Code', 0);
+                    setTimeout(() => {
+                        modalQRCode.hide();
+                    }, 2000);
+                });
+            }
+        }
+
+        function iniciarVerificacaoPix() {
+            let progresso = 0;
+            let mensagens = [
+                'Aguardando leitura do QR Code...',
+                'QR Code detectado!',
+                'Processando pagamento...',
+                'Pagamento aprovado!'
+            ];
+            let mensagemIndex = 0;
+
+            verificacaoPixInterval = setInterval(() => {
+                progresso += 2;
+                if (progresso >= 100) {
+                    clearInterval(verificacaoPixInterval);
+                    verificarPagamentoPix();
+                } else if (progresso % 25 === 0) {
+                    mensagemIndex++;
+                    atualizarStatusPix(mensagens[mensagemIndex], progresso);
+                } else {
+                    atualizarStatusPix(mensagens[mensagemIndex], progresso);
+                }
+            }, 100);
+        }
+
+        function verificarPagamentoPix() {
+            fetch('/verificar_pagamento_pix', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    atualizarStatusPix('Pagamento processado com sucesso!', 100);
+                    setTimeout(() => {
+                        window.location.href = data.redirect;
+                    }, 1500);
+                } else {
+                    atualizarStatusPix('Erro ao processar pagamento: ' + data.message, 0);
+                    setTimeout(() => {
+                        modalQRCode.hide();
+                    }, 2000);
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                atualizarStatusPix('Erro ao processar pagamento', 0);
+                setTimeout(() => {
+                    modalQRCode.hide();
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+</html> 
