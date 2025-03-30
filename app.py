@@ -61,10 +61,39 @@ def calcular_total():
 
 @app.route('/')
 def index():
+    produtos = [
+        {
+            'id': 1,
+            'nome': 'X-Burger',
+            'descricao': 'Hambúrguer com queijo, alface, tomate e molho especial',
+            'preco': 25.90,
+            'imagem': '/static/images/xburger.jpg'
+        },
+        {
+            'id': 2,
+            'nome': 'X-Bacon',
+            'descricao': 'Hambúrguer com queijo, bacon, alface, tomate e molho especial',
+            'preco': 28.90,
+            'imagem': '/static/images/pizza.jpg'
+        },
+        {
+            'id': 3,
+            'nome': 'X-Tudo',
+            'descricao': 'Hambúrguer com queijo, bacon, ovo, alface, tomate e molho especial',
+            'preco': 32.90,
+            'imagem': '/static/images/batata.jpg'
+        }
+    ]
+    
     pedido_atual = session.get('pedido_atual', [])
     historico_pedidos = session.get('historico_pedidos', [])
     total = sum(item['preco_total'] for item in pedido_atual)
-    return render_template('index.html', produtos=produtos, pedido_atual=pedido_atual, historico_pedidos=historico_pedidos, total=total)
+    
+    return render_template('index.html', 
+                         produtos=produtos, 
+                         pedido_atual=pedido_atual,
+                         historico_pedidos=historico_pedidos,
+                         total=total)
 
 @app.route('/produto/<int:produto_id>')
 def detalhes_produto(produto_id):
@@ -175,7 +204,8 @@ def finalizar_pedido():
         'id': len(session.get('historico_pedidos', [])) + 1,
         'itens': itens_historico,
         'data': datetime.now().strftime('%d/%m/%Y %H:%M:%S'),
-        'total': sum(item['preco_total'] for item in session['pedido_atual'])
+        'total': sum(item['preco_total'] for item in session['pedido_atual']),
+        'status': 'Em preparação'
     }
     
     # Adiciona ao histórico
@@ -188,6 +218,26 @@ def finalizar_pedido():
     session.modified = True
     
     return jsonify({'success': True})
+
+@app.route('/atualizar_status_pedido', methods=['POST'])
+def atualizar_status_pedido():
+    data = request.get_json()
+    pedido_id = data.get('pedido_id')
+    novo_status = data.get('status')
+    
+    if not pedido_id or not novo_status:
+        return jsonify({'success': False, 'message': 'ID do pedido e status são obrigatórios'})
+    
+    historico_pedidos = session.get('historico_pedidos', [])
+    
+    for pedido in historico_pedidos:
+        if pedido['id'] == pedido_id:
+            pedido['status'] = novo_status
+            session['historico_pedidos'] = historico_pedidos
+            session.modified = True
+            return jsonify({'success': True})
+    
+    return jsonify({'success': False, 'message': 'Pedido não encontrado'})
 
 @app.route('/historico')
 def historico():

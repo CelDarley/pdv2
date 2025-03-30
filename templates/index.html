@@ -84,15 +84,23 @@
                     <h4>Histórico de Pedidos</h4>
                     <div id="historico-pedidos">
                         {% for pedido in historico_pedidos %}
-                            <div class="pedido-historico">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <small class="text-muted">{{ pedido.data }}</small>
-                                    <span class="preco">R$ {{ "%.2f"|format(pedido.total) }}</span>
-                                </div>
-                                <div class="itens-pedido">
-                                    {% for item in pedido.itens %}
-                                        <div class="pedido-item">
-                                            <div class="d-flex justify-content-between align-items-center">
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h5 class="card-title">Pedido #{{ pedido.id }}</h5>
+                                            <p class="card-text text-muted">{{ pedido.data }}</p>
+                                        </div>
+                                        <div class="text-end">
+                                            <h5 class="preco mb-0">R$ {{ "%.2f"|format(pedido.total) }}</h5>
+                                            <div class="mt-2">
+                                                <span class="text-muted">{{ pedido.status }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        {% for item in pedido.itens %}
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
                                                 <div>
                                                     <h6 class="mb-0">{{ item.produto.nome }}</h6>
                                                     <small class="text-muted">Quantidade: {{ item.quantidade }}</small>
@@ -116,8 +124,8 @@
                                                     <p class="preco mb-0">R$ {{ "%.2f"|format(item.produto.preco) }}</p>
                                                 </div>
                                             </div>
-                                        </div>
-                                    {% endfor %}
+                                        {% endfor %}
+                                    </div>
                                 </div>
                             </div>
                         {% endfor %}
@@ -391,6 +399,37 @@
                     alert('Erro ao remover item');
                 });
             }
+        }
+
+        function atualizarStatus(pedidoId, novoStatus) {
+            fetch('/atualizar_status_pedido', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    pedido_id: pedidoId,
+                    status: novoStatus
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Atualiza a interface sem recarregar a página
+                    const select = event.target;
+                    const card = select.closest('.card');
+                    const statusBadge = card.querySelector('.status-badge');
+                    if (statusBadge) {
+                        statusBadge.textContent = novoStatus;
+                    }
+                } else {
+                    alert('Erro ao atualizar status do pedido');
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Erro ao atualizar status do pedido');
+            });
         }
     </script>
 </body>
