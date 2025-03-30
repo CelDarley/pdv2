@@ -1,0 +1,670 @@
+{% extends 'base.html' %}
+
+{% block title %}Cardápio{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Coluna da Esquerda - Produtos -->
+        <div class="col-md-8">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Cardápio</h2>
+            </div>
+            
+            {% regroup produtos by categoria as categorias %}
+            {% for categoria in categorias %}
+            <div class="categoria-section mb-5">
+                <h3 class="mb-4">{{ categoria.grouper.nome }}</h3>
+                <div class="row">
+                    {% for produto in categoria.list %}
+                    <div class="col-md-4 mb-4">
+                        <div class="card h-100" style="cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-5px)'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.1)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';" onclick="abrirModalProduto({{ produto.id }}, '{{ produto.nome|escapejs }}', '{{ produto.descricao|escapejs }}', {{ produto.preco }}, '{{ produto.imagem.url }}')">
+                            <img src="{{ produto.imagem.url }}" class="card-img-top produto-imagem" alt="{{ produto.nome }}">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ produto.nome }}</h5>
+                                <p class="card-text">{{ produto.descricao }}</p>
+                                <p class="preco mb-3">R$ {{ produto.preco|floatformat:2 }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Coluna da Direita - Histórico e Pedido Atual -->
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Pedido Atual</h5>
+                    <div class="pedido-itens" style="display: flex; flex-direction: column; gap: 10px;">
+                        {% if pedido_atual and pedido_atual.itens %}
+                            {% for item in pedido_atual.itens %}
+                            <div class="card" style="width: 100%; margin-bottom: 10px;">
+                                <div class="card-body p-2">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <div style="flex: 1;">
+                                            <h6 class="mb-0">{{ item.produto.nome }}</h6>
+                                            {% if item.extras %}
+                                                <small class="text-muted">
+                                                    {{ item.extras|join:", " }}
+                                                </small>
+                                            {% endif %}
+                                        </div>
+                                        <div style="display: flex; align-items: center; margin-left: 15px;">
+                                            <span style="margin-right: 10px;">{{ item.quantidade }}x</span>
+                                            <span style="margin-right: 10px;">R$ {{ item.preco_total|floatformat:2 }}</span>
+                                            <form method="POST" action="{% url 'pedidos:remover_item' forloop.counter0 %}" style="display: inline;">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-danger btn-sm">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            <div class="card" style="width: 100%; margin-top: 15px;">
+                                <div class="card-body p-2">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <strong>Total do Pedido:</strong>
+                                        <strong>R$ {{ pedido_atual.total|floatformat:2 }}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="text-align: right; margin-top: 15px;">
+                            <button type="button" class="btn btn-success" onclick="finalizarPedido()">
+                                <i class="bi bi-check-circle"></i> Finalizar Pedido
+                            </button>
+                        </div>
+                        {% else %}
+                        <p class="text-muted">Nenhum item no pedido atual.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Histórico de Pedidos -->
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Histórico de Pedidos</h5>
+                    
+                    {% if pedidos_anteriores %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Data</th>
+                                        <th>Total</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for pedido in pedidos_anteriores %}
+                                        {% if pedido.status != 'pago' %}
+                                            <tr>
+                                                <td>{{ pedido.id }}</td>
+                                                <td>{{ pedido.data_pedido|time:"H:i" }}</td>
+                                                <td>R$ {{ pedido.valor_total|floatformat:2 }}</td>
+                                                <td>
+                                                    <span class="badge {% if pedido.status == 'pronto' %}bg-success{% else %}bg-warning{% endif %}">
+                                                        {{ pedido.get_status_display }}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        {% endif %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="text-center mt-4">
+                            <button type="button" class="btn btn-primary" onclick="abrirModalFecharConta()">
+                                <i class="bi bi-cash"></i> Fechar Conta
+                            </button>
+                        </div>
+                    {% else %}
+                        <p class="text-center text-muted">Nenhum pedido ativo</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal do Produto -->
+<div class="modal fade" id="modalProduto" tabindex="-1" aria-labelledby="modalProdutoTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalProdutoTitulo"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <img id="modalProdutoImagem" src="" class="img-fluid rounded" alt="Produto">
+                    </div>
+                    <div class="col-md-6">
+                        <p id="modalProdutoDescricao" class="mb-3"></p>
+                        <p class="preco mb-3" id="modalProdutoPreco"></p>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Quantidade:</label>
+                            <div class="input-group">
+                                <button class="btn btn-outline-secondary" type="button" onclick="diminuirQuantidade()">-</button>
+                                <input type="number" class="form-control text-center" id="quantidadeProduto" value="1" min="1" max="10">
+                                <button class="btn btn-outline-secondary" type="button" onclick="aumentarQuantidade()">+</button>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Extras:</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="molhoEspecial" value="molho_especial">
+                                <label class="form-check-label" for="molhoEspecial">
+                                    Molho Especial
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="ketchup" value="ketchup">
+                                <label class="form-check-label" for="ketchup">
+                                    Ketchup
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="maionese" value="maionese">
+                                <label class="form-check-label" for="maionese">
+                                    Maionese
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="adicionarProdutoSelecionado()">Adicionar ao Pedido</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Fechar Conta -->
+<div class="modal fade" id="modalFecharConta" tabindex="-1" aria-labelledby="modalFecharContaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalFecharContaLabel">Fechar Conta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="modalFecharContaBody">
+                <!-- Lista de pedidos será inserida aqui via JavaScript -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button>
+                <button type="button" class="btn btn-primary" onclick="pagarConta()">Pagar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let produtoSelecionado = null;
+    let modalProduto = null;
+    let quantidadeAtual = 1;
+    let csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    let finalizarPedidoUrl = "{% url 'pedidos:finalizar_pedido' %}";
+    let modalFecharConta = null;
+    let pedidoSelecionadoId = null;
+
+    // Função para obter o cookie CSRF
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        modalProduto = new bootstrap.Modal(document.getElementById('modalProduto'));
+        console.log('Modal inicializado');
+
+        // Adiciona o evento de submit ao formulário de finalizar pedido
+        const finalizarPedidoForm = document.querySelector('form[action*="finalizar-pedido"]');
+        if (finalizarPedidoForm) {
+            finalizarPedidoForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                finalizarPedido();
+            });
+        }
+
+        // Corrige o erro de acessibilidade do modal
+        const modalElement = document.getElementById('modalProduto');
+        modalElement.addEventListener('show.bs.modal', function () {
+            this.setAttribute('aria-hidden', 'false');
+        });
+        
+        modalElement.addEventListener('hide.bs.modal', function () {
+            this.setAttribute('aria-hidden', 'true');
+        });
+
+        // Inicializa o modal de fechar conta
+        modalFecharConta = new bootstrap.Modal(document.getElementById('modalFecharConta'));
+    });
+
+    function diminuirQuantidade() {
+        const input = document.getElementById('quantidadeProduto');
+        if (input.value > 1) {
+            input.value = parseInt(input.value) - 1;
+            quantidadeAtual = parseInt(input.value);
+        }
+    }
+
+    function aumentarQuantidade() {
+        const input = document.getElementById('quantidadeProduto');
+        if (input.value < 10) {
+            input.value = parseInt(input.value) + 1;
+            quantidadeAtual = parseInt(input.value);
+        }
+    }
+
+    // Atualiza a quantidade quando o input é alterado manualmente
+    document.getElementById('quantidadeProduto').addEventListener('change', function() {
+        let valor = parseInt(this.value);
+        if (valor < 1) valor = 1;
+        if (valor > 10) valor = 10;
+        this.value = valor;
+        quantidadeAtual = valor;
+    });
+
+    function abrirModalProduto(id, nome, descricao, preco, imagem) {
+        console.log('Abrindo modal com:', { id, nome, descricao, preco, imagem });
+        
+        produtoSelecionado = {
+            id: id,
+            nome: nome,
+            descricao: descricao,
+            preco: preco,
+            imagem: imagem
+        };
+        
+        document.getElementById('modalProdutoTitulo').textContent = nome;
+        document.getElementById('modalProdutoImagem').src = imagem;
+        document.getElementById('modalProdutoDescricao').textContent = descricao;
+        document.getElementById('modalProdutoPreco').textContent = `R$ ${preco.toFixed(2)}`;
+        document.getElementById('quantidadeProduto').value = '1';
+        quantidadeAtual = 1;
+        
+        modalProduto.show();
+        console.log('Modal aberto com sucesso');
+    }
+
+    function adicionarProdutoSelecionado() {
+        if (!produtoSelecionado) {
+            console.error('Nenhum produto selecionado');
+            return;
+        }
+
+        console.log('Produto selecionado:', produtoSelecionado);  // Debug
+
+        // Coleta as opções adicionais selecionadas
+        const extras = [];
+        if (document.getElementById('molhoEspecial').checked) extras.push('Molho Especial');
+        if (document.getElementById('ketchup').checked) extras.push('Ketchup');
+        if (document.getElementById('maionese').checked) extras.push('Maionese');
+
+        console.log('Extras selecionados:', extras);  // Debug
+        console.log('Quantidade:', quantidadeAtual);  // Debug
+
+        // Prepara os dados para enviar
+        const dados = {
+            produto_id: produtoSelecionado.id,
+            quantidade: quantidadeAtual,
+            extras: extras
+        };
+
+        console.log('Dados a serem enviados:', dados);  // Debug
+        console.log('CSRF Token:', csrfToken);  // Debug
+
+        // Envia a requisição AJAX
+        fetch("/pedidos/adicionar-ao-pedido/", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(dados)
+        })
+        .then(response => {
+            console.log('Status da resposta:', response.status);  // Debug
+            console.log('Headers da resposta:', Object.fromEntries(response.headers.entries()));  // Debug
+            if (!response.ok) {
+                return response.json().then(data => {
+                    console.error('Erro na resposta:', data);  // Debug
+                    throw new Error(data.error || `HTTP error! status: ${response.status}`);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Resposta recebida:', data);  // Debug
+            if (data.success) {
+                console.log('Item adicionado com sucesso!');  // Debug
+                // Fecha a modal
+                modalProduto.hide();
+                
+                // Atualiza a seção do pedido atual
+                const pedidoAtualDiv = document.querySelector('.pedido-itens');
+                if (pedidoAtualDiv) {
+                    console.log('Div do pedido atual encontrada');  // Debug
+                    // Remove a mensagem de "Nenhum item no pedido atual" se existir
+                    const mensagemVazia = pedidoAtualDiv.querySelector('.text-muted');
+                    if (mensagemVazia) {
+                        console.log('Removendo mensagem de pedido vazio');  // Debug
+                        mensagemVazia.remove();
+                    }
+
+                    // Cria o novo item
+                    const novoItem = document.createElement('div');
+                    novoItem.className = 'card';
+                    novoItem.style.width = '100%';
+                    novoItem.style.marginBottom = '10px';
+                    
+                    novoItem.innerHTML = `
+                        <div class="card-body p-2">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div style="flex: 1;">
+                                    <h6 class="mb-0">${data.item.produto.nome}</h6>
+                                    ${data.item.extras.length > 0 ? `
+                                        <small class="text-muted">
+                                            ${data.item.extras.join(", ")}
+                                        </small>
+                                    ` : ''}
+                                </div>
+                                <div style="display: flex; align-items: center; margin-left: 15px;">
+                                    <span style="margin-right: 10px;">${data.item.quantidade}x</span>
+                                    <span style="margin-right: 10px;">R$ ${data.item.preco_total.toFixed(2)}</span>
+                                    <form method="POST" action="/pedidos/remover-item/${pedidoAtualDiv.children.length}/" style="display: inline;">
+                                        <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">
+                                        <button type="submit" class="btn btn-danger btn-sm">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    console.log('Novo item criado:', novoItem.innerHTML);  // Debug
+
+                    // Adiciona o novo item antes do total
+                    const totalDiv = pedidoAtualDiv.querySelector('.card:last-child');
+                    if (totalDiv) {
+                        console.log('Total div encontrada, inserindo antes');  // Debug
+                        pedidoAtualDiv.insertBefore(novoItem, totalDiv);
+                    } else {
+                        console.log('Total div não encontrada, adicionando ao final');  // Debug
+                        pedidoAtualDiv.appendChild(novoItem);
+                    }
+
+                    // Cria ou atualiza o card de total
+                    let totalCard = pedidoAtualDiv.querySelector('.card:last-child');
+                    if (!totalCard || !totalCard.querySelector('strong')) {
+                        console.log('Criando novo card de total');  // Debug
+                        totalCard = document.createElement('div');
+                        totalCard.className = 'card';
+                        totalCard.style.width = '100%';
+                        totalCard.style.marginTop = '15px';
+                        totalCard.innerHTML = `
+                            <div class="card-body p-2">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <strong>Total do Pedido:</strong>
+                                    <strong>R$ ${data.total.toFixed(2)}</strong>
+                                </div>
+                            </div>
+                        `;
+                        pedidoAtualDiv.appendChild(totalCard);
+                    } else {
+                        console.log('Atualizando card de total existente');  // Debug
+                        const totalElement = totalCard.querySelector('strong:last-child');
+                        totalElement.textContent = `R$ ${data.total.toFixed(2)}`;
+                    }
+
+                    // Adiciona o botão de finalizar pedido se não existir
+                    let finalizarButton = pedidoAtualDiv.nextElementSibling;
+                    if (!finalizarButton || !finalizarButton.querySelector('button')) {
+                        console.log('Adicionando botão de finalizar pedido');  // Debug
+                        finalizarButton = document.createElement('div');
+                        finalizarButton.style.textAlign = 'right';
+                        finalizarButton.style.marginTop = '15px';
+                        finalizarButton.innerHTML = `
+                            <button type="button" class="btn btn-success" onclick="finalizarPedido()">
+                                <i class="bi bi-check-circle"></i> Finalizar Pedido
+                            </button>
+                        `;
+                        pedidoAtualDiv.parentNode.appendChild(finalizarButton);
+                    }
+                } else {
+                    console.log('Div do pedido atual não encontrada, recarregando página');  // Debug
+                    window.location.reload();
+                }
+            } else {
+                console.error('Erro do servidor:', data.error);
+                alert('Erro ao adicionar produto: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Erro na requisição:', error);
+            console.error('Stack trace:', error.stack);  // Debug
+            alert('Erro ao adicionar produto: ' + error.message);
+        });
+    }
+
+    function finalizarPedido() {
+        console.log('Finalizando pedido...');
+        
+        fetch(finalizarPedidoUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Resposta do servidor:', data);
+            
+            if (data.success) {
+                // Limpa o pedido atual
+                const pedidoAtualDiv = document.querySelector('.pedido-itens');
+                pedidoAtualDiv.innerHTML = '<p class="text-muted">Nenhum item no pedido atual.</p>';
+                
+                // Remove o botão de finalizar pedido
+                const finalizarButton = pedidoAtualDiv.nextElementSibling;
+                if (finalizarButton && finalizarButton.querySelector('button')) {
+                    finalizarButton.remove();
+                }
+                
+                // Atualiza o histórico
+                const historicoCard = document.querySelector('.col-md-4 .card:last-child .card-body');
+                historicoCard.innerHTML = `
+                    <h5 class="card-title">Histórico de Pedidos</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Data</th>
+                                    <th>Total</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>${data.pedido.id}</td>
+                                    <td>${data.pedido.data_pedido}</td>
+                                    <td>R$ ${data.pedido.total.toFixed(2)}</td>
+                                    <td>
+                                        <span class="badge bg-warning">Em preparação</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                
+                // Recarrega a página para atualizar o histórico completo
+                window.location.reload();
+            } else {
+                alert('Erro ao finalizar pedido: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao finalizar pedido. Por favor, tente novamente.');
+        });
+    }
+
+    function abrirModalFecharConta() {
+        console.log('Abrindo modal de fechar conta...');
+        console.log('CSRF Token:', csrfToken);
+        
+        // Busca apenas pedidos ativos e não pagos
+        fetch('/pedidos/listar-pedidos/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => {
+            console.log('Status da resposta:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Dados recebidos:', data);
+            if (data.pedidos && data.pedidos.length > 0) {
+                let total = 0;
+                let html = '<div class="table-responsive"><table class="table table-sm">';
+                html += '<thead><tr><th>#</th><th>Data</th><th>Total</th><th>Status</th></tr></thead><tbody>';
+                
+                data.pedidos.forEach(pedido => {
+                    total += pedido.valor_total;
+                    html += `
+                        <tr>
+                            <td>${pedido.id}</td>
+                            <td>${pedido.data}</td>
+                            <td>R$ ${pedido.valor_total.toFixed(2)}</td>
+                            <td>
+                                <span class="badge bg-warning">
+                                    ${pedido.status === 'pronto' ? 'Pronto' : 'Em preparação'}
+                                </span>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table></div>';
+                html += `<div class="text-end mt-3"><strong>Total: R$ ${total.toFixed(2)}</strong></div>`;
+                html += `
+                    <div class="text-center mt-4">
+                        <button type="button" class="btn btn-primary" onclick="pagarConta()">
+                            <i class="bi bi-cash"></i> Pagar Conta
+                        </button>
+                    </div>
+                `;
+                
+                document.getElementById('modalFecharContaBody').innerHTML = html;
+                document.getElementById('modalFecharConta').classList.add('show');
+                document.getElementById('modalFecharConta').style.display = 'block';
+                document.body.classList.add('modal-open');
+            } else {
+                document.getElementById('modalFecharContaBody').innerHTML = '<p class="text-center">Nenhum pedido ativo para pagar.</p>';
+                document.getElementById('modalFecharConta').classList.add('show');
+                document.getElementById('modalFecharConta').style.display = 'block';
+                document.body.classList.add('modal-open');
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao carregar pedidos:', error);
+            console.error('Stack trace:', error.stack);
+            alert('Erro ao carregar pedidos. Por favor, tente novamente.');
+        });
+    }
+
+    function pagarConta() {
+        // Redireciona para a página de pagamento com todos os pedidos ativos
+        fetch('/pedidos/listar-pedidos/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.pedidos && data.pedidos.length > 0) {
+                // Calcula o total geral
+                const totalGeral = data.pedidos.reduce((total, pedido) => total + parseFloat(pedido.valor_total), 0);
+                
+                // Cria um formulário para enviar todos os IDs dos pedidos
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = `/pedidos/pagamento/${data.pedidos[0].id}/`;
+                
+                // Adiciona o token CSRF
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrfmiddlewaretoken';
+                csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                
+                // Adiciona os IDs dos pedidos
+                const pedidosInput = document.createElement('input');
+                pedidosInput.type = 'hidden';
+                pedidosInput.name = 'pedidos_ids';
+                pedidosInput.value = data.pedidos.map(p => p.id).join(',');
+                
+                // Adiciona o total geral
+                const totalInput = document.createElement('input');
+                totalInput.type = 'hidden';
+                totalInput.name = 'total_geral';
+                totalInput.value = totalGeral;
+                
+                form.appendChild(csrfInput);
+                form.appendChild(pedidosInput);
+                form.appendChild(totalInput);
+                
+                document.body.appendChild(form);
+                form.submit();
+            } else {
+                alert('Não há pedidos para pagar.');
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao processar pagamento. Por favor, tente novamente.');
+        });
+    }
+</script>
+{% endblock %} 

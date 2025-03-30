@@ -1,14 +1,10 @@
-# Ambiente virtual
-venv/
-env/
-ENV/
-
-# Arquivos Python
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+env/
 build/
 develop-eggs/
 dist/
@@ -25,19 +21,31 @@ wheels/
 .installed.cfg
 *.egg
 
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+
+# Virtual Environment
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
 # Arquivos de ambiente
 .env
 .env.local
 .env.*.local
 
-# IDEs e editores
-.idea/
-.vscode/
-*.swp
-*.swo
-.DS_Store
-Thumbs.db
-
 # Logs
-*.log
 logs/ 

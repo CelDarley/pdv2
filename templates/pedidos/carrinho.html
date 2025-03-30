@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+
+{% block title %}Carrinho{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">Carrinho de Pedidos</h2>
+
+    {% if pedido_atual %}
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Pedido Atual</h5>
+                <div class="pedido-itens" style="display: flex; flex-direction: column; gap: 10px;">
+                    {% for item in pedido_atual.itens %}
+                        <div class="card" style="width: 100%; margin-bottom: 10px;">
+                            <div class="card-body p-2">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="flex: 1;">
+                                        <h6 class="mb-0">{{ item.produto.nome }}</h6>
+                                        {% if item.extras %}
+                                            <small class="text-muted">
+                                                {{ item.extras|join:", " }}
+                                            </small>
+                                        {% endif %}
+                                    </div>
+                                    <div style="display: flex; align-items: center; margin-left: 15px;">
+                                        <span style="margin-right: 10px;">{{ item.quantidade }}x</span>
+                                        <span style="margin-right: 10px;">R$ {{ item.preco_total|floatformat:2 }}</span>
+                                        <form method="POST" action="{% url 'remover_item' forloop.counter0 %}" style="display: inline;">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-danger btn-sm">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                    
+                    <div class="card" style="width: 100%; margin-top: 15px;">
+                        <div class="card-body p-2">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <strong>Total do Pedido:</strong>
+                                <strong>R$ {{ pedido_atual.total|floatformat:2 }}</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div style="text-align: right; margin-top: 15px;">
+                    <form method="POST" action="{% url 'pedidos:finalizar_pedido' %}" style="display: inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="pedido_atual" value="{{ pedido_atual|safe }}">
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-check-circle"></i> Finalizar Pedido
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> Seu carrinho está vazio. 
+            <a href="{% url 'index' %}" class="alert-link">Volte ao cardápio</a> para adicionar produtos.
+        </div>
+    {% endif %}
+
+    {% if pedidos_anteriores %}
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Pedidos Anteriores</h5>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Data</th>
+                                <th>Status</th>
+                                <th>Total</th>
+                                <th>Detalhes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pedido in pedidos_anteriores %}
+                            <tr>
+                                <td>#{{ pedido.id }}</td>
+                                <td>{{ pedido.data_pedido|date:"d/m/Y H:i" }}</td>
+                                <td>
+                                    <span class="badge {% if pedido.status == 'Em preparação' %}bg-warning{% elif pedido.status == 'Pronto' %}bg-success{% else %}bg-secondary{% endif %}">
+                                        {{ pedido.status }}
+                                    </span>
+                                </td>
+                                <td>R$ {{ pedido.total|floatformat:2 }}</td>
+                                <td>
+                                    <button class="btn btn-info btn-sm" onclick="abrirDetalhesPedido({{ pedido|safe }})">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Modal de Detalhes do Pedido -->
+<div class="modal fade" id="modalDetalhesPedido" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalhes do Pedido #<span id="pedidoId"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <strong>Data:</strong> <span id="pedidoData"></span>
+                </div>
+                <div class="mb-3">
+                    <strong>Status:</strong> <span id="pedidoStatus" class="badge"></span>
+                </div>
+                <div class="mb-3">
+                    <strong>Itens:</strong>
+                    <ul class="list-group" id="pedidoItens"></ul>
+                </div>
+                <div class="mb-3">
+                    <strong>Total:</strong> R$ <span id="pedidoTotal"></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let modalDetalhesPedido = null;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        modalDetalhesPedido = new bootstrap.Modal(document.getElementById('modalDetalhesPedido'));
+    });
+
+    function abrirDetalhesPedido(pedido) {
+        document.getElementById('pedidoId').textContent = pedido.id;
+        document.getElementById('pedidoData').textContent = new Date(pedido.data_pedido).toLocaleString('pt-BR');
+        document.getElementById('pedidoStatus').textContent = pedido.status;
+        document.getElementById('pedidoStatus').className = `badge ${
+            pedido.status === 'Em preparação' ? 'bg-warning' : 
+            pedido.status === 'Pronto' ? 'bg-success' : 'bg-secondary'
+        }`;
+        
+        const itensList = document.getElementById('pedidoItens');
+        itensList.innerHTML = '';
+        pedido.itens.forEach(item => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item';
+            li.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${item.produto.nome}</strong>
+                        <br>
+                        <small>Quantidade: ${item.quantidade}</small>
+                        ${item.extras.length > 0 ? `<br><small>Extras: ${item.extras.map(e => e.nome).join(', ')}</small>` : ''}
+                    </div>
+                    <div class="text-end">
+                        R$ ${item.preco_total.toFixed(2)}
+                    </div>
+                </div>
+            `;
+            itensList.appendChild(li);
+        });
+        
+        document.getElementById('pedidoTotal').textContent = pedido.total.toFixed(2);
+        modalDetalhesPedido.show();
+    }
+</script>
+{% endblock %} 

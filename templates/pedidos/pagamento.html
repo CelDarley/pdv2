@@ -1,0 +1,194 @@
+{% extends 'base.html' %}
+
+{% block title %}Pagamento{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4 class="mb-0">Resumo dos Pedidos</h4>
+                </div>
+                <div class="card-body">
+                    {% for pedido in pedidos %}
+                    <div class="mb-4">
+                        <h5 class="card-subtitle mb-2 text-muted">Pedido #{{ pedido.id }} - {{ pedido.data_pedido|date:"d/m/Y H:i" }}</h5>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Item</th>
+                                        <th>Quantidade</th>
+                                        <th>Preço</th>
+                                        <th>Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in pedido.itens.all %}
+                                    <tr>
+                                        <td>{{ item.produto.nome }}</td>
+                                        <td>{{ item.quantidade }}</td>
+                                        <td>R$ {{ item.preco_unitario|floatformat:2 }}</td>
+                                        <td>R$ {{ item.preco_total|floatformat:2 }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="3" class="text-end"><strong>Total do Pedido:</strong></td>
+                                        <td><strong>R$ {{ pedido.valor_total|floatformat:2 }}</strong></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    <div class="text-end mt-3">
+                        <h4>Total Geral: <span class="text-primary">R$ {{ total_geral|floatformat:2 }}</span></h4>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Card de Pagamento com Cartão -->
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100" style="cursor: pointer;" onclick="simularPagamentoCartao()">
+                        <div class="card-header">
+                            <h5 class="mb-0">Pagamento com Cartão</h5>
+                        </div>
+                        <div class="card-body text-center">
+                            <img src="https://cdn-icons-png.flaticon.com/512/179/179431.png" alt="Cartão de Crédito" class="img-fluid mb-3" style="max-width: 150px;">
+                            <p class="text-muted">Aproxime ou insira o cartão na máquina</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card de Pagamento com PIX -->
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5 class="mb-0">Pagamento com PIX</h5>
+                        </div>
+                        <div class="card-body text-center">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={{ pedidos.0.id }}" alt="QR Code PIX" class="img-fluid mb-3" style="max-width: 200px;">
+                            <p class="text-muted">Escaneie o QR Code com seu aplicativo de pagamento</p>
+                            <button type="button" class="btn btn-success w-100" onclick="simularPagamentoPix()">
+                                <i class="bi bi-qr-code"></i> Simular Leitura do QR Code
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Processamento -->
+<div class="modal fade" id="modalProcessamento" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center p-5">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Processando...</span>
+                </div>
+                <h5 class="mb-3">Processando pagamento...</h5>
+                <p class="text-muted">Por favor, aguarde enquanto processamos seu pagamento.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Sucesso -->
+<div class="modal fade" id="modalSucesso" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center p-5">
+                <div class="text-success mb-3">
+                    <i class="bi bi-check-circle-fill" style="font-size: 4rem;"></i>
+                </div>
+                <h5 class="mb-3">Pagamento Realizado com Sucesso!</h5>
+                <p class="text-muted">Seu pagamento foi processado e confirmado.</p>
+                <button type="button" class="btn btn-primary" onclick="finalizarPagamento()">
+                    Finalizar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function simularPagamentoCartao() {
+        // Mostra o modal de processamento
+        const modalProcessamento = new bootstrap.Modal(document.getElementById('modalProcessamento'));
+        modalProcessamento.show();
+
+        // Simula o processamento do pagamento
+        setTimeout(() => {
+            // Fecha o modal de processamento
+            modalProcessamento.hide();
+
+            // Envia o formulário de pagamento com cartão
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = "{% url 'pedidos:processar_pagamento' pedidos.0.id %}";
+
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+            const formaPagamentoInput = document.createElement('input');
+            formaPagamentoInput.type = 'hidden';
+            formaPagamentoInput.name = 'forma_pagamento';
+            formaPagamentoInput.value = 'cartao';
+
+            form.appendChild(csrfInput);
+            form.appendChild(formaPagamentoInput);
+            document.body.appendChild(form);
+            form.submit();
+        }, 3000); // Simula 3 segundos de processamento
+    }
+
+    function simularPagamentoPix() {
+        // Mostra o modal de processamento
+        const modalProcessamento = new bootstrap.Modal(document.getElementById('modalProcessamento'));
+        modalProcessamento.show();
+
+        // Simula o processamento do pagamento
+        setTimeout(() => {
+            // Fecha o modal de processamento
+            modalProcessamento.hide();
+
+            // Mostra o modal de sucesso
+            const modalSucesso = new bootstrap.Modal(document.getElementById('modalSucesso'));
+            modalSucesso.show();
+        }, 3000); // Simula 3 segundos de processamento
+    }
+
+    function finalizarPagamento() {
+        // Envia o formulário de pagamento com PIX
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = "{% url 'pedidos:processar_pagamento' pedidos.0.id %}";
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+        const formaPagamentoInput = document.createElement('input');
+        formaPagamentoInput.type = 'hidden';
+        formaPagamentoInput.name = 'forma_pagamento';
+        formaPagamentoInput.value = 'pix';
+
+        form.appendChild(csrfInput);
+        form.appendChild(formaPagamentoInput);
+        document.body.appendChild(form);
+        form.submit();
+    }
+</script>
+{% endblock %} 
