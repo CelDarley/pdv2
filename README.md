@@ -82,3 +82,39 @@ restaurante/
 ## Licença
 
 Este projeto está licenciado sob a licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes. 
+
+sistema PVD
+
+### Primeiro, clone o repositório:
+~~~bash
+ git clone https://github.com/CelDarley/pdv2.git
+ cd pdv2
+ ~~~
+
+### Crie e ative um ambiente virtual:
+~~~bash
+python -m venv venv
+source venv/bin/activate  # No Linux
+venv\Scripts\activate  # No Windows
+~~~
+### Instale as dependências do projeto:
+~~~bash
+pip install django
+pip install pillow
+pip install django-crispy-forms
+pip install crispy-bootstrap5
+~~~
+### Faça as migrações do banco de dados:
+~~~bash
+python manage.py makemigrations
+python manage.py migrate
+~~~
+### Crie um superusuário para acessar o painel administrativo:
+~~~bash
+python manage.py createsuperuser
+~~~
+### Inicie o servidor:
+~~~bash
+python manage.py runserver
+~~~
+### Após executar estes comandos, o servidor estará rodando em http://127.0.0.1:8000/
